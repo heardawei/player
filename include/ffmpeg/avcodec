@@ -1,0 +1,8 @@
+#ifdef __cplusplus
+extern "C"
+{
+#include <libavcodec/avcodec.h>
+}
+#else
+#include <libavcodec/avcodec.h>
+#endif

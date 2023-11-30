@@ -1,0 +1,8 @@
+#ifdef __cplusplus
+extern "C"
+{
+#include <libavfilter/avfilter.h>
+}
+#else
+#include <libavfilter/avfilter.h>
+#endif

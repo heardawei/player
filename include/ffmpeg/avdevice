@@ -1,0 +1,8 @@
+#ifdef __cplusplus
+extern "C"
+{
+#include <libavdevice/avdevice.h>
+}
+#else
+#include <libavdevice/avdevice.h>
+#endif

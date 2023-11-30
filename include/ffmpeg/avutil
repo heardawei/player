@@ -1,0 +1,8 @@
+#ifdef __cplusplus
+extern "C"
+{
+#include <libavutil/avutil.h>
+}
+#else
+#include <libavutil/avutil.h>
+#endif
