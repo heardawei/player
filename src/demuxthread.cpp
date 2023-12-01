@@ -1,10 +1,16 @@
 #include "demuxthread.h"
 
 #include <libavformat/avformat.h>
+#include <spdlog/fmt/std.h>
 #include <spdlog/spdlog.h>
 
-Demuxthread::Demuxthread(/* args */)
+#include "avpacketqueue.h"
+
+Demuxthread::Demuxthread(std::shared_ptr<AVPacketQueue> audio_pkt_queue,
+                         std::shared_ptr<AVPacketQueue> video_pkt_queue)
     : m_avfmt_ctx(avformat_alloc_context())
+    , m_audio_pkt_queue(audio_pkt_queue)
+    , m_video_pkt_queue(video_pkt_queue)
 {
 }
 
@@ -43,8 +49,8 @@ int Demuxthread::init(std::string_view url)
   else
   {
     m_audio_stream_idx = ret;
-    SPDLOG_INFO("audio stream index: {}", *m_audio_stream_idx);
   }
+  SPDLOG_INFO("audio stream index: {}", m_audio_stream_idx);
 
   if (const auto ret = av_find_best_stream(
           m_avfmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
@@ -57,8 +63,8 @@ int Demuxthread::init(std::string_view url)
   else
   {
     m_video_stream_idx = ret;
-    SPDLOG_INFO("video stream index: {}", *m_video_stream_idx);
   }
+  SPDLOG_INFO("video stream index: {}", m_video_stream_idx);
 
   return 0;
 }
@@ -78,14 +84,18 @@ void Demuxthread::deinit() { avformat_close_input(&m_avfmt_ctx); }
 
 void Demuxthread::run(std::stop_token token)
 {
-  AVPacket packet;
+  auto pkt = std::shared_ptr<AVPacket>(
+      av_packet_alloc(), [](AVPacket *pkt) { av_packet_free(&pkt); });
+
   while (!token.stop_requested())
   {
-    if (const auto ret = av_read_frame(m_avfmt_ctx, &packet); ret < 0)
+    if (const auto ret = av_read_frame(m_avfmt_ctx, pkt.get()); ret < 0)
     {
       if (ret == AVERROR_EOF)
       {
-        SPDLOG_INFO("end of file");
+        SPDLOG_INFO("read finished, audio frames: {}, video frames: {}",
+                    m_audio_pkt_queue->size(),
+                    m_video_pkt_queue->size());
         break;
       }
       else
@@ -96,18 +106,18 @@ void Demuxthread::run(std::stop_token token)
         break;
       }
     }
-    if (m_audio_stream_idx && packet.stream_index == *m_audio_stream_idx)
+
+    if (m_audio_stream_idx && pkt->stream_index == *m_audio_stream_idx)
     {
-      SPDLOG_INFO("audio packet");
+      m_audio_pkt_queue->push(pkt);
     }
-    else if (m_video_stream_idx && packet.stream_index == *m_video_stream_idx)
+    else if (m_video_stream_idx && pkt->stream_index == *m_video_stream_idx)
     {
-      SPDLOG_INFO("video packet");
+      m_video_pkt_queue->push(pkt);
     }
     else
     {
-      SPDLOG_INFO("other packet");
+      av_packet_unref(pkt.get());
     }
-    av_packet_unref(&packet);
   }
 }
