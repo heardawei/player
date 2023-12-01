@@ -58,10 +58,11 @@ int main(int ac, char** av)
     return -1;
   }
 
-  auto audio_pkt_queue = std::make_shared<AVPacketQueue>();
-  auto video_pkt_queue = std::make_shared<AVPacketQueue>();
+  auto audio_packet_queue = std::make_shared<AVPacketQueue>();
+  auto video_packet_queue = std::make_shared<AVPacketQueue>();
+
   auto demux_thrd =
-      std::make_shared<Demuxthread>(audio_pkt_queue, video_pkt_queue);
+      std::make_shared<Demuxthread>(audio_packet_queue, video_packet_queue);
   if (const auto ret = demux_thrd->init(av[1]); ret < 0)
   {
     char estr[AV_ERROR_MAX_STRING_SIZE]{};

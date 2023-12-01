@@ -14,8 +14,8 @@ class Demuxthread
  private:
   /* data */
  public:
-  Demuxthread(std::shared_ptr<AVPacketQueue> audio_pkt_queue,
-              std::shared_ptr<AVPacketQueue> video_pkt_queue);
+  Demuxthread(std::shared_ptr<AVPacketQueue> audio_packet_queue,
+              std::shared_ptr<AVPacketQueue> video_packet_queue);
   ~Demuxthread();
 
   int init(std::string_view url);
@@ -27,12 +27,13 @@ class Demuxthread
 
  private:
   void run(std::stop_token token);
+  std::string error_stringify(int error);
 
  private:
-  AVFormatContext *m_avfmt_ctx{};
+  AVFormatContext *m_format_ctx{};
   std::optional<int> m_audio_stream_idx{};
   std::optional<int> m_video_stream_idx{};
-  std::jthread m_thrd;
-  std::shared_ptr<AVPacketQueue> m_audio_pkt_queue;
-  std::shared_ptr<AVPacketQueue> m_video_pkt_queue;
+  std::jthread m_thread;
+  std::shared_ptr<AVPacketQueue> m_audio_packet_queue;
+  std::shared_ptr<AVPacketQueue> m_video_packet_queue;
 };
