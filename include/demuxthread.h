@@ -5,6 +5,7 @@
 #include <string_view>
 #include <thread>
 
+#include <ffmpeg/avcodec>
 #include <ffmpeg/avformat>
 
 #include "avpacketqueue.h"
@@ -24,6 +25,9 @@ class Demuxthread
   void stop();
 
   void deinit();
+
+  const AVCodecParameters *audio_codec_params() const;
+  const AVCodecParameters *video_codec_params() const;
 
  private:
   void run(std::stop_token token);

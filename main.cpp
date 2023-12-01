@@ -4,6 +4,7 @@
 #include "ffmpeg/avformat"
 #include "ffmpeg/avutil"
 
+#include "codecthread.h"
 #include "demuxthread.h"
 #include "lockedqueue.h"
 
@@ -51,6 +52,7 @@ int main(int ac, char** av)
 {
   SPDLOG_INFO("ffmpeg avutil verion: {}", avutil_version());
   SPDLOG_INFO("ffmpeg avformat verion: {}", avformat_version());
+  SPDLOG_INFO("ffmpeg avcodec verion: {}", avcodec_version());
 
   if (ac != 2)
   {
@@ -61,22 +63,62 @@ int main(int ac, char** av)
   auto audio_packet_queue = std::make_shared<AVPacketQueue>();
   auto video_packet_queue = std::make_shared<AVPacketQueue>();
 
-  auto demux_thrd =
+  auto audio_frame_queue = std::make_shared<AVFrameQueue>();
+  auto video_frame_queue = std::make_shared<AVFrameQueue>();
+
+  auto demux_thread =
       std::make_shared<Demuxthread>(audio_packet_queue, video_packet_queue);
-  if (const auto ret = demux_thrd->init(av[1]); ret < 0)
+  auto audio_decode_thread =
+      std::make_shared<CodecThread>(audio_packet_queue, audio_frame_queue);
+  auto video_decode_thread =
+      std::make_shared<CodecThread>(video_packet_queue, video_frame_queue);
+
+  if (const auto ret = demux_thread->init(av[1]); ret < 0)
   {
     char estr[AV_ERROR_MAX_STRING_SIZE]{};
-    SPDLOG_ERROR("av_find_best_stream for video error: {}",
+    SPDLOG_ERROR("demux_thread init error: {}",
                  av_make_error_string(estr, AV_ERROR_MAX_STRING_SIZE, ret));
-    return -1;
+    return ret;
   }
-  demux_thrd->start();
+
+  if (const auto ret =
+          audio_decode_thread->init(demux_thread->audio_codec_params());
+      ret < 0)
+  {
+    char estr[AV_ERROR_MAX_STRING_SIZE]{};
+    SPDLOG_ERROR("audio_decode_thread init error: {}",
+                 av_make_error_string(estr, AV_ERROR_MAX_STRING_SIZE, ret));
+    return ret;
+  }
+
+  if (const auto ret =
+          video_decode_thread->init(demux_thread->video_codec_params());
+      ret < 0)
+  {
+    char estr[AV_ERROR_MAX_STRING_SIZE]{};
+    SPDLOG_ERROR("video_decode_thread init error: {}",
+                 av_make_error_string(estr, AV_ERROR_MAX_STRING_SIZE, ret));
+    return ret;
+  }
+
+  demux_thread->start();
+  audio_decode_thread->start();
+  video_decode_thread->start();
 
   using namespace std::chrono_literals;
-  std::this_thread::sleep_for(2s);
+  std::this_thread::sleep_for(10s);
 
-  demux_thrd->stop();
-  demux_thrd->deinit();
+  video_decode_thread->stop();
+  audio_decode_thread->stop();
+  demux_thread->stop();
+
+  video_decode_thread->deinit();
+  audio_decode_thread->deinit();
+  demux_thread->deinit();
+
+  SPDLOG_INFO("audio frames: {}, video frames: {}",
+              audio_frame_queue->size(),
+              video_frame_queue->size());
 
   return 0;
 }

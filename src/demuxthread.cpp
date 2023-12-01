@@ -25,7 +25,8 @@ int Demuxthread::init(std::string_view url)
     return ret;
   }
 
-  if (const auto ret = avformat_find_stream_info(m_format_ctx, nullptr); ret < 0)
+  if (const auto ret = avformat_find_stream_info(m_format_ctx, nullptr);
+      ret < 0)
   {
     return ret;
   }
@@ -72,20 +73,35 @@ void Demuxthread::stop()
 
 void Demuxthread::deinit() { avformat_close_input(&m_format_ctx); }
 
+const AVCodecParameters *Demuxthread::audio_codec_params() const
+{
+  if (m_audio_stream_idx)
+  {
+    return m_format_ctx->streams[*m_audio_stream_idx]->codecpar;
+  }
+  return nullptr;
+}
+
+const AVCodecParameters *Demuxthread::video_codec_params() const
+{
+  if (m_video_stream_idx)
+  {
+    return m_format_ctx->streams[*m_video_stream_idx]->codecpar;
+  }
+  return nullptr;
+}
+
 void Demuxthread::run(std::stop_token token)
 {
-  auto pkt = std::shared_ptr<AVPacket>(
-      av_packet_alloc(), [](AVPacket *pkt) { av_packet_free(&pkt); });
-
   while (!token.stop_requested())
   {
+    auto pkt = std::shared_ptr<AVPacket>(
+        av_packet_alloc(), [](AVPacket *pkt) { av_packet_free(&pkt); });
     if (const auto ret = av_read_frame(m_format_ctx, pkt.get()); ret < 0)
     {
       if (ret == AVERROR_EOF)
       {
-        SPDLOG_INFO("read finished, audio frames: {}, video frames: {}",
-                    m_audio_packet_queue->size(),
-                    m_video_packet_queue->size());
+        SPDLOG_INFO("read finished");
         break;
       }
       else
