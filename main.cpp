@@ -4,9 +4,13 @@
 #include "ffmpeg/avformat"
 #include "ffmpeg/avutil"
 
+#include "audiooutput.h"
 #include "codecthread.h"
 #include "demuxthread.h"
+#include "ffmpeg_utils.h"
 #include "lockedqueue.h"
+
+#undef main
 
 namespace test
 {
@@ -72,12 +76,11 @@ int main(int ac, char** av)
       std::make_shared<CodecThread>(audio_packet_queue, audio_frame_queue);
   auto video_decode_thread =
       std::make_shared<CodecThread>(video_packet_queue, video_frame_queue);
+  auto audio_output = std::make_shared<AudioOutput>(audio_frame_queue);
 
   if (const auto ret = demux_thread->init(av[1]); ret < 0)
   {
-    char estr[AV_ERROR_MAX_STRING_SIZE]{};
-    SPDLOG_ERROR("demux_thread init error: {}",
-                 av_make_error_string(estr, AV_ERROR_MAX_STRING_SIZE, ret));
+    SPDLOG_ERROR("demux_thread init error: {}", Utils::error_stringify(ret));
     return ret;
   }
 
@@ -85,9 +88,8 @@ int main(int ac, char** av)
           audio_decode_thread->init(demux_thread->audio_codec_params());
       ret < 0)
   {
-    char estr[AV_ERROR_MAX_STRING_SIZE]{};
     SPDLOG_ERROR("audio_decode_thread init error: {}",
-                 av_make_error_string(estr, AV_ERROR_MAX_STRING_SIZE, ret));
+                 Utils::error_stringify(ret));
     return ret;
   }
 
@@ -95,9 +97,16 @@ int main(int ac, char** av)
           video_decode_thread->init(demux_thread->video_codec_params());
       ret < 0)
   {
-    char estr[AV_ERROR_MAX_STRING_SIZE]{};
     SPDLOG_ERROR("video_decode_thread init error: {}",
-                 av_make_error_string(estr, AV_ERROR_MAX_STRING_SIZE, ret));
+                 Utils::error_stringify(ret));
+    return ret;
+  }
+
+  if (const auto ret = audio_output->init(
+          AudioParams::from(*demux_thread->audio_codec_params()));
+      ret < 0)
+  {
+    SPDLOG_ERROR("audio_output init error: {}", Utils::error_stringify(ret));
     return ret;
   }
 
@@ -106,7 +115,7 @@ int main(int ac, char** av)
   video_decode_thread->start();
 
   using namespace std::chrono_literals;
-  std::this_thread::sleep_for(10s);
+  std::this_thread::sleep_for(120s);
 
   video_decode_thread->stop();
   audio_decode_thread->stop();

@@ -1,0 +1,8 @@
+#ifdef __cplusplus
+extern "C"
+{
+#include <libswscale/swscale.h>
+}
+#else
+#include <libswscale/swscale.h>
+#endif

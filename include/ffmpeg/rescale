@@ -1,8 +1,0 @@
-#ifdef __cplusplus
-extern "C"
-{
-#include <libavswscale/avswscale.h>
-}
-#else
-#include <libavswscale/avswscale.h>
-#endif

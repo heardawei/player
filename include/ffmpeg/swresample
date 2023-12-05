@@ -1,8 +1,8 @@
 #ifdef __cplusplus
 extern "C"
 {
-#include <libavswresample/avswresample.h>
+#include <libswresample/swresample.h>
 }
 #else
-#include <libavswresample/avswresample.h>
+#include <libswresample/swresample.h>
 #endif

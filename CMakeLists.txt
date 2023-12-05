@@ -5,6 +5,7 @@ set(CMAKE_INSTALL_RPATH_USE_LINK_PATH true)
 
 find_package(fmt CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
+find_package(sdl2 CONFIG REQUIRED)
 
 file(GLOB SRC_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 add_executable(player ${SRC_FILES} main.cpp)
@@ -29,6 +30,7 @@ target_link_libraries(player PRIVATE
     postproc
     swresample
     swscale
+    SDL2::SDL2
     fmt::fmt
     spdlog::spdlog)
 target_link_directories(player PRIVATE 

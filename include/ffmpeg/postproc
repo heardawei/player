@@ -1,8 +1,8 @@
 #ifdef __cplusplus
 extern "C"
 {
-#include <libavpostproc/avpostproc.h>
+#include <libpostproc/postprocess.h>
 }
 #else
-#include <libavpostproc/avpostproc.h>
+#include <libpostproc/postprocess.h>
 #endif
