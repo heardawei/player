@@ -26,7 +26,6 @@ class CodecThread
 
  private:
   void run(std::stop_token token);
-  std::string error_stringify(int error);
 
  private:
   AVCodecContext *m_codec_ctx{};

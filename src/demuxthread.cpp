@@ -5,6 +5,7 @@
 #include <spdlog/spdlog.h>
 
 #include "avpacketqueue.h"
+#include "ffmpeg_utils.h"
 
 Demuxthread::Demuxthread(std::shared_ptr<AVPacketQueue> audio_packet_queue,
                          std::shared_ptr<AVPacketQueue> video_packet_queue)
@@ -113,7 +114,7 @@ void Demuxthread::run(std::stop_token token)
       }
       else
       {
-        SPDLOG_ERROR("av_read_frame error: {}", error_stringify(ret));
+        SPDLOG_ERROR("av_read_frame error: {}", Utils::error_stringify(ret));
         break;
       }
     }
@@ -131,10 +132,4 @@ void Demuxthread::run(std::stop_token token)
       av_packet_unref(pkt.get());
     }
   }
-}
-
-std::string Demuxthread::error_stringify(int error)
-{
-  char estr[AV_ERROR_MAX_STRING_SIZE]{};
-  return av_make_error_string(estr, AV_ERROR_MAX_STRING_SIZE, error);
 }
