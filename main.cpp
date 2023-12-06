@@ -9,6 +9,7 @@
 #include "demuxthread.h"
 #include "ffmpeg_utils.h"
 #include "lockedqueue.h"
+#include "videooutput.h"
 
 #undef main
 
@@ -77,6 +78,7 @@ int main(int ac, char** av)
   auto video_decode_thread =
       std::make_shared<CodecThread>(video_packet_queue, video_frame_queue);
   auto audio_output = std::make_shared<AudioOutput>(audio_frame_queue);
+  auto video_output = std::make_shared<VideoOutput>(video_frame_queue);
 
   if (const auto ret = demux_thread->init(av[1]); ret < 0)
   {
@@ -106,16 +108,24 @@ int main(int ac, char** av)
   //         AudioParams::from(*demux_thread->audio_codec_params()));
   //     ret < 0)
   // {
-  //   SPDLOG_ERROR("audio_output init error: {}", Utils::error_stringify(ret));
+  //   SPDLOG_ERROR("audio_output init error");
   //   return ret;
   // }
+
+  if (const auto ret =
+          video_output->init(demux_thread->video_codec_params()->width,
+                             demux_thread->video_codec_params()->height);
+      ret < 0)
+  {
+    SPDLOG_ERROR("video_output init error");
+    return ret;
+  }
 
   demux_thread->start();
   audio_decode_thread->start();
   video_decode_thread->start();
 
-  using namespace std::chrono_literals;
-  std::this_thread::sleep_for(120s);
+  video_output->main_loop();
 
   video_decode_thread->stop();
   audio_decode_thread->stop();

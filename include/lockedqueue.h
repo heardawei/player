@@ -17,6 +17,8 @@ class LockedQueue
   using lock_guard = std::lock_guard<lock_type>;
 
  public:
+  T &front() { return m_queue.front(); }
+
   std::optional<T> pop(
       std::chrono::milliseconds ms = std::chrono::milliseconds(0))
   {
@@ -45,6 +47,12 @@ class LockedQueue
   {
     lock_guard locker(m_lock);
     return m_queue.size();
+  }
+
+  bool empty()
+  {
+    lock_guard locker(m_lock);
+    return m_queue.empty();
   }
 
  private:
