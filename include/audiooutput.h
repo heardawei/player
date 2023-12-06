@@ -56,7 +56,6 @@ class AudioOutput
 
  public:
   SwrContext* m_swr_ctx{};
-  int64_t m_pts{AV_NOPTS_VALUE};
   uint8_t* m_audio_buf{};
   uint32_t m_audio_buf_size{};
   uint32_t m_audio_buf_index{};

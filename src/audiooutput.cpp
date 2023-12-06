@@ -11,6 +11,7 @@ void fill_audio_pcm(void* userdata, uint8_t* stream, int len)
   AudioOutput* is = reinterpret_cast<AudioOutput*>(userdata);
   int len1{};
   int audio_size{};
+  std::optional<int64_t> opt_pts;
 
   while (len > 0)
   {
@@ -29,7 +30,7 @@ void fill_audio_pcm(void* userdata, uint8_t* stream, int len)
         SPDLOG_TRACE("   - sample_rate({}) ", frame->sample_rate);
         SPDLOG_TRACE("   - channels({}) ", frame->ch_layout.nb_channels);
 
-        is->m_pts = frame->pts;
+        opt_pts = frame->pts;
 
         // 怎么判断是否重采样
         // 1. PCM数据格式和输出格式不一样
@@ -156,12 +157,12 @@ void fill_audio_pcm(void* userdata, uint8_t* stream, int len)
     is->m_audio_buf_index += len1;
   }
 
-  if (is->m_pts != AV_NOPTS_VALUE)
+  if (opt_pts)
   {
-    auto pts = is->m_pts * av_q2d(is->m_time_base);
+    auto pts = *opt_pts * av_q2d(is->m_time_base);
     is->m_avsync->set_clock(pts);
     SPDLOG_DEBUG("audio pts: {} * ({} / {}) = {}",
-                 is->m_pts,
+                 *opt_pts,
                  is->m_time_base.num,
                  is->m_time_base.den,
                  pts);
