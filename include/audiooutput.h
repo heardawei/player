@@ -11,20 +11,28 @@
 struct AudioParams
 {
   int freq{};  // The number of audio samples per second.
-  int channels{};
-  uint64_t channel_layout{};
+  AVChannelLayout channel_layout{};
   AVSampleFormat format{AV_SAMPLE_FMT_NONE};
   int frame_size{};
 
+  static AudioParams from(const SDL_AudioSpec& spec)
+  {
+    AudioParams params;
+    av_channel_layout_default(&params.channel_layout, spec.channels);
+    params.format = AV_SAMPLE_FMT_S16;
+    params.freq = spec.freq;
+    params.frame_size = spec.samples;
+    return params;
+  }
+
   static AudioParams from(const AVCodecParameters& codec_params)
   {
-    return {
-        codec_params.sample_rate,
-        codec_params.channels,
-        codec_params.channel_layout,
-        static_cast<AVSampleFormat>(codec_params.format),
-        codec_params.frame_size,
-    };
+    AudioParams audio_params;
+    audio_params.channel_layout = codec_params.ch_layout;
+    audio_params.format = (enum AVSampleFormat)codec_params.format;
+    audio_params.freq = codec_params.sample_rate;
+    audio_params.frame_size = codec_params.frame_size;
+    return audio_params;
   }
 };
 
@@ -47,7 +55,7 @@ class AudioOutput
   AudioParams m_params;
 
  public:
-  SwrContext* m_swr_ctx;
+  SwrContext* m_swr_ctx{};
   int64_t m_pts{AV_NOPTS_VALUE};
   uint8_t* m_audio_buf{};
   uint32_t m_audio_buf_size{};

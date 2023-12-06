@@ -104,14 +104,14 @@ int main(int ac, char** av)
     return ret;
   }
 
-  // if (const auto ret = audio_output->init(
-  //         AudioParams::from(*demux_thread->audio_codec_params()),
-  //         demux_thread->video_stream_time_base());
-  //     ret < 0)
-  // {
-  //   SPDLOG_ERROR("audio_output init error");
-  //   return ret;
-  // }
+  if (const auto ret = audio_output->init(
+          AudioParams::from(*demux_thread->audio_codec_params()),
+          demux_thread->video_stream_time_base());
+      ret < 0)
+  {
+    SPDLOG_ERROR("audio_output init error");
+    return ret;
+  }
 
   if (const auto ret =
           video_output->init(demux_thread->video_codec_params()->width,

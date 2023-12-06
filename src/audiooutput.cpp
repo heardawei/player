@@ -18,6 +18,7 @@ void fill_audio_pcm(void* userdata, uint8_t* stream, int len)
     if (is->m_audio_buf_index == is->m_audio_buf_size)
     {
       is->m_audio_buf_index = 0;
+      SPDLOG_INFO("audio frame queue size: {}", is->m_queue->size());
       auto opt = is->m_queue->pop(std::chrono::milliseconds(10));
       if (opt)
       {
@@ -26,8 +27,7 @@ void fill_audio_pcm(void* userdata, uint8_t* stream, int len)
         SPDLOG_INFO("  frame: ");
         SPDLOG_INFO("   - format({}) ", frame->format);
         SPDLOG_INFO("   - sample_rate({}) ", frame->sample_rate);
-        SPDLOG_INFO("   - channels({}) ", frame->channels);
-        SPDLOG_INFO("   - channel_layout({})", frame->channel_layout);
+        SPDLOG_INFO("   - channels({}) ", frame->ch_layout.nb_channels);
 
         is->m_pts = frame->pts;
 
@@ -35,23 +35,26 @@ void fill_audio_pcm(void* userdata, uint8_t* stream, int len)
         // 1. PCM数据格式和输出格式不一样
         // 2. PCM数据采样率和输出不一样
         // 3. channel layout?
+        // 4. 每次运行只支持一种采样器
         if (((frame->format != is->m_params.format) ||
              (frame->sample_rate != is->m_params.freq) ||
-             (frame->channel_layout != is->m_params.channel_layout)) &&
-            // 每次运行只支持一种采样器
+             av_channel_layout_compare(&frame->ch_layout,
+                                       &is->m_params.channel_layout)) &&
             (!is->m_swr_ctx))
         {
           SPDLOG_INFO("    alloc SwrContext");
-          is->m_swr_ctx = swr_alloc_set_opts(nullptr,
-                                             is->m_params.channel_layout,
-                                             is->m_params.format,
-                                             is->m_params.freq,
-                                             frame->channel_layout,
-                                             (AVSampleFormat)frame->format,
-                                             frame->sample_rate,
-                                             0,
-                                             nullptr);
-          if (!is->m_swr_ctx)
+
+          if (const auto ret =
+                  swr_alloc_set_opts2(&is->m_swr_ctx,
+                                      &is->m_params.channel_layout,
+                                      is->m_params.format,
+                                      is->m_params.freq,
+                                      &frame->ch_layout,
+                                      (AVSampleFormat)frame->format,
+                                      frame->sample_rate,
+                                      0,
+                                      nullptr);
+              ret < 0)
           {
             SPDLOG_ERROR("swr_alloc_set_opts error");
             return;
@@ -67,13 +70,16 @@ void fill_audio_pcm(void* userdata, uint8_t* stream, int len)
         if (is->m_swr_ctx)
         {  // 重采样
           SPDLOG_INFO("    resampleing");
+          const uint8_t** in = (const uint8_t**)frame->extended_data;
+          uint8_t** out = &is->m_audio_buf1;
           int out_samples =
               frame->nb_samples * is->m_params.freq / frame->sample_rate + 256;
-          int out_bytes = av_samples_get_buffer_size(nullptr,
-                                                     is->m_params.channels,
-                                                     out_samples,
-                                                     is->m_params.format,
-                                                     0);
+          int out_bytes = av_samples_get_buffer_size(
+              nullptr,
+              is->m_params.channel_layout.nb_channels,
+              out_samples,
+              is->m_params.format,
+              0);
           if (out_bytes < 0)
           {
             SPDLOG_ERROR("av_samples_get_buffer_size error: {}",
@@ -84,8 +90,6 @@ void fill_audio_pcm(void* userdata, uint8_t* stream, int len)
               "      out_samples: {}, out_bytes: {}", out_samples, out_bytes);
 
           av_fast_malloc(&is->m_audio_buf1, &is->m_audio_buf1_size, out_bytes);
-          const uint8_t** in = (const uint8_t**)frame->extended_data;
-          uint8_t** out = &is->m_audio_buf1;
           SPDLOG_INFO(
               "      malloc: {} -> {}", out_bytes, is->m_audio_buf1_size);
 
@@ -98,14 +102,18 @@ void fill_audio_pcm(void* userdata, uint8_t* stream, int len)
           }
           is->m_audio_buf = is->m_audio_buf1;
           is->m_audio_buf_size = av_samples_get_buffer_size(
-              nullptr, is->m_params.channels, len2, is->m_params.format, 1);
+              nullptr,
+              is->m_params.channel_layout.nb_channels,
+              len2,
+              is->m_params.format,
+              1);
           SPDLOG_INFO("      get sample buffer: {}", is->m_audio_buf_size);
         }
         else
         {  // 不重采样
           SPDLOG_INFO("    none resampleing");
           audio_size = av_samples_get_buffer_size(nullptr,
-                                                  frame->channels,
+                                                  frame->ch_layout.nb_channels,
                                                   frame->nb_samples,
                                                   (AVSampleFormat)frame->format,
                                                   1);
@@ -179,34 +187,36 @@ int AudioOutput::init(const AudioParams& params, AVRational time_base)
     return ret;
   }
 
-  SDL_AudioSpec wanted_spec, spec;
-  wanted_spec.channels = params.channels;
-  wanted_spec.freq = params.freq;
-  wanted_spec.format = AUDIO_S16SYS;
-  wanted_spec.silence = 0;
-  wanted_spec.samples = params.frame_size;
-  wanted_spec.callback = fill_audio_pcm;
-  wanted_spec.userdata = this;
+  SDL_AudioSpec spec;
+  spec.channels = 2;  // 只支持2 channel的输出
+  spec.freq = params.freq;
+  spec.format = AUDIO_S16SYS;
+  spec.silence = 0;
+  spec.samples = 1024;  // 采样数量
+  spec.callback = fill_audio_pcm;
+  spec.userdata = this;
 
   // AudioParams params;
-  if (const auto ret = SDL_OpenAudio(&wanted_spec, &spec); ret < 0)
+  if (const auto ret = SDL_OpenAudio(&spec, nullptr); ret < 0)
   {
     SPDLOG_ERROR("SDL_OpenAudio error: {}", SDL_GetError());
     return ret;
   }
 
-  m_params.channels = spec.channels;
-  m_params.format = AV_SAMPLE_FMT_S16;
-  m_params.freq = spec.freq;
-  m_params.channel_layout = av_get_default_channel_layout(spec.channels);
-  m_params.frame_size = params.frame_size;
+  if (spec.format != AUDIO_S16SYS)
+  {
+    SPDLOG_ERROR("音频不支持AUDIO_S16SYS格式输出");
+    return -1;
+  }
+
+  m_params = AudioParams::from(spec);
+
   SDL_PauseAudio(0);
 
   SPDLOG_INFO("spec: ");
   SPDLOG_INFO(" - format({}) ", static_cast<int>(m_params.format));
   SPDLOG_INFO(" - sample_rate({}) ", m_params.freq);
-  SPDLOG_INFO(" - channels({}) ", m_params.channels);
-  SPDLOG_INFO(" - channel_layout({})", m_params.channel_layout);
+  SPDLOG_INFO(" - channels({}) ", m_params.channel_layout.nb_channels);
 
   return 0;
 }

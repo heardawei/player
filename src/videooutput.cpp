@@ -107,10 +107,10 @@ void VideoOutput::refresh_loop_wait_event(SDL_Event &event)
     }
     else if (ret > 0)
     {
-      SPDLOG_INFO("SDL_PeepEvents event: {}", ret);
+      // SPDLOG_INFO("SDL_PeepEvents event: {}", ret);
       break;
     }
-    SPDLOG_INFO("SDL_PeepEvents event: 0");
+    // SPDLOG_INFO("SDL_PeepEvents event: 0");
 
     if (remaining_time_ms > 0.0)
     {

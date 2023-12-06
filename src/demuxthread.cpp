@@ -117,7 +117,7 @@ void Demuxthread::run(std::stop_token token)
     if (m_audio_packet_queue->size() > 200 ||
         m_video_packet_queue->size() > 200)
     {  // 等待包被消费解码
-      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
       continue;
     }
 
