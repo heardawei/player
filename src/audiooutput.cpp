@@ -14,20 +14,20 @@ void fill_audio_pcm(void* userdata, uint8_t* stream, int len)
 
   while (len > 0)
   {
-    SPDLOG_INFO("while len: {} > 0", len);
+    SPDLOG_TRACE("while len: {} > 0", len);
     if (is->m_audio_buf_index == is->m_audio_buf_size)
     {
       is->m_audio_buf_index = 0;
-      SPDLOG_INFO("audio frame queue size: {}", is->m_queue->size());
+      SPDLOG_TRACE("audio frame queue size: {}", is->m_queue->size());
       auto opt = is->m_queue->pop(std::chrono::milliseconds(10));
       if (opt)
       {
         auto frame = opt.value().get();
 
-        SPDLOG_INFO("  frame: ");
-        SPDLOG_INFO("   - format({}) ", frame->format);
-        SPDLOG_INFO("   - sample_rate({}) ", frame->sample_rate);
-        SPDLOG_INFO("   - channels({}) ", frame->ch_layout.nb_channels);
+        SPDLOG_TRACE("  frame: ");
+        SPDLOG_TRACE("   - format({}) ", frame->format);
+        SPDLOG_TRACE("   - sample_rate({}) ", frame->sample_rate);
+        SPDLOG_TRACE("   - channels({}) ", frame->ch_layout.nb_channels);
 
         is->m_pts = frame->pts;
 
@@ -42,7 +42,7 @@ void fill_audio_pcm(void* userdata, uint8_t* stream, int len)
                                        &is->m_params.channel_layout)) &&
             (!is->m_swr_ctx))
         {
-          SPDLOG_INFO("    alloc SwrContext");
+          SPDLOG_TRACE("    alloc SwrContext");
 
           if (const auto ret =
                   swr_alloc_set_opts2(&is->m_swr_ctx,
@@ -69,7 +69,7 @@ void fill_audio_pcm(void* userdata, uint8_t* stream, int len)
 
         if (is->m_swr_ctx)
         {  // 重采样
-          SPDLOG_INFO("    resampleing");
+          SPDLOG_TRACE("    resampleing");
           const uint8_t** in = (const uint8_t**)frame->extended_data;
           uint8_t** out = &is->m_audio_buf1;
           int out_samples =
@@ -86,11 +86,11 @@ void fill_audio_pcm(void* userdata, uint8_t* stream, int len)
                          Utils::error_stringify(out_bytes));
             return;
           }
-          SPDLOG_INFO(
+          SPDLOG_TRACE(
               "      out_samples: {}, out_bytes: {}", out_samples, out_bytes);
 
           av_fast_malloc(&is->m_audio_buf1, &is->m_audio_buf1_size, out_bytes);
-          SPDLOG_INFO(
+          SPDLOG_TRACE(
               "      malloc: {} -> {}", out_bytes, is->m_audio_buf1_size);
 
           const auto len2 = swr_convert(
@@ -107,22 +107,22 @@ void fill_audio_pcm(void* userdata, uint8_t* stream, int len)
               len2,
               is->m_params.format,
               1);
-          SPDLOG_INFO("      get sample buffer: {}", is->m_audio_buf_size);
+          SPDLOG_TRACE("      get sample buffer: {}", is->m_audio_buf_size);
         }
         else
         {  // 不重采样
-          SPDLOG_INFO("    none resampleing");
+          SPDLOG_TRACE("    none resampleing");
           audio_size = av_samples_get_buffer_size(nullptr,
                                                   frame->ch_layout.nb_channels,
                                                   frame->nb_samples,
                                                   (AVSampleFormat)frame->format,
                                                   1);
-          SPDLOG_INFO("    get sample buffer: {}", audio_size);
+          SPDLOG_TRACE("    get sample buffer: {}", audio_size);
 
           av_fast_malloc(&is->m_audio_buf1, &is->m_audio_buf1_size, audio_size);
           is->m_audio_buf = is->m_audio_buf1;
           is->m_audio_buf_size = audio_size;
-          SPDLOG_INFO(
+          SPDLOG_TRACE(
               "    malloc: {} -> {}", audio_size, is->m_audio_buf1_size);
 
           memcpy(is->m_audio_buf, frame->data[0], audio_size);
@@ -132,7 +132,7 @@ void fill_audio_pcm(void* userdata, uint8_t* stream, int len)
       {
         is->m_audio_buf = nullptr;
         is->m_audio_buf_size = 512;
-        SPDLOG_INFO("    pop 0 frame packet");
+        SPDLOG_TRACE("    pop 0 frame packet");
       }
     }
 
@@ -160,11 +160,11 @@ void fill_audio_pcm(void* userdata, uint8_t* stream, int len)
   {
     auto pts = is->m_pts * av_q2d(is->m_time_base);
     is->m_avsync->set_clock(pts);
-    SPDLOG_INFO("audio pts: {} * ({} / {}) = {}",
-                is->m_pts,
-                is->m_time_base.num,
-                is->m_time_base.den,
-                pts);
+    SPDLOG_DEBUG("audio pts: {} * ({} / {}) = {}",
+                 is->m_pts,
+                 is->m_time_base.num,
+                 is->m_time_base.den,
+                 pts);
   }
 }
 

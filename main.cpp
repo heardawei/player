@@ -1,4 +1,10 @@
+#include <chrono>
+#include <format>
+#include <memory>
+
 #include <spdlog/fmt/std.h>
+#include <spdlog/sinks/basic_file_sink.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
 #include "ffmpeg/avformat"
@@ -12,6 +18,27 @@
 #include "videooutput.h"
 
 #undef main
+
+namespace
+{
+void init_logging()
+{
+  const auto& localzone_time = std::chrono::zoned_time(
+      std::chrono::current_zone(), std::chrono::system_clock::now());
+  const auto& filename = std::format("{:%Y%m%d_%H%M%S}.log", localzone_time);
+  auto file_sink =
+      std::make_shared<spdlog::sinks::basic_file_sink_mt>(filename, true);
+  file_sink->set_level(spdlog::level::level_enum::trace);
+  auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+  console_sink->set_level(spdlog::level::level_enum::debug);
+  auto logger = std::make_shared<spdlog::logger>(
+      "default", spdlog::sinks_init_list{file_sink, console_sink});
+  logger->set_level(spdlog::level::level_enum::trace);
+  spdlog::set_default_logger(logger);
+  spdlog::flush_every(std::chrono::seconds(1));
+  spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] [%s:%#] [%!] [%t] %v");
+}
+}  // namespace
 
 namespace test
 {
@@ -55,6 +82,8 @@ void locked_queue_test()
 
 int main(int ac, char** av)
 {
+  init_logging();
+
   SPDLOG_INFO("ffmpeg avutil verion: {}", avutil_version());
   SPDLOG_INFO("ffmpeg avformat verion: {}", avformat_version());
   SPDLOG_INFO("ffmpeg avcodec verion: {}", avcodec_version());

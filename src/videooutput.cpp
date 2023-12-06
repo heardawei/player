@@ -135,11 +135,11 @@ void VideoOutput::refresh_video(int &remaining_time_ms)
   if (frame)
   {
     double pts = frame->pts * av_q2d(m_time_base);
-    SPDLOG_INFO("video pts: {} * ({} / {}) = {}",
-                frame->pts,
-                m_time_base.num,
-                m_time_base.den,
-                pts);
+    SPDLOG_DEBUG("video pts: {} * ({} / {}) = {}",
+                 frame->pts,
+                 m_time_base.num,
+                 m_time_base.den,
+                 pts);
 
     auto diff = pts - m_avsync->get_clock();
     if (diff > 0)
