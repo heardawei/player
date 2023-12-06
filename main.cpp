@@ -67,9 +67,9 @@ int main(int ac, char** av)
 
   auto audio_packet_queue = std::make_shared<AVPacketQueue>();
   auto video_packet_queue = std::make_shared<AVPacketQueue>();
-
   auto audio_frame_queue = std::make_shared<AVFrameQueue>();
   auto video_frame_queue = std::make_shared<AVFrameQueue>();
+  auto avsync = std::make_shared<AVSync>();
 
   auto demux_thread =
       std::make_shared<Demuxthread>(audio_packet_queue, video_packet_queue);
@@ -77,8 +77,8 @@ int main(int ac, char** av)
       std::make_shared<CodecThread>(audio_packet_queue, audio_frame_queue);
   auto video_decode_thread =
       std::make_shared<CodecThread>(video_packet_queue, video_frame_queue);
-  auto audio_output = std::make_shared<AudioOutput>(audio_frame_queue);
-  auto video_output = std::make_shared<VideoOutput>(video_frame_queue);
+  auto audio_output = std::make_shared<AudioOutput>(audio_frame_queue, avsync);
+  auto video_output = std::make_shared<VideoOutput>(video_frame_queue, avsync);
 
   if (const auto ret = demux_thread->init(av[1]); ret < 0)
   {
@@ -105,7 +105,8 @@ int main(int ac, char** av)
   }
 
   // if (const auto ret = audio_output->init(
-  //         AudioParams::from(*demux_thread->audio_codec_params()));
+  //         AudioParams::from(*demux_thread->audio_codec_params()),
+  //         demux_thread->video_stream_time_base());
   //     ret < 0)
   // {
   //   SPDLOG_ERROR("audio_output init error");
@@ -114,7 +115,8 @@ int main(int ac, char** av)
 
   if (const auto ret =
           video_output->init(demux_thread->video_codec_params()->width,
-                             demux_thread->video_codec_params()->height);
+                             demux_thread->video_codec_params()->height,
+                             demux_thread->video_stream_time_base());
       ret < 0)
   {
     SPDLOG_ERROR("video_output init error");

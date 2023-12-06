@@ -92,6 +92,24 @@ const AVCodecParameters *Demuxthread::video_codec_params() const
   return nullptr;
 }
 
+AVRational Demuxthread::audio_stream_time_base() const
+{
+  if (m_audio_stream_idx)
+  {
+    return m_format_ctx->streams[*m_audio_stream_idx]->time_base;
+  }
+  return av_make_q(0, 0);
+}
+
+AVRational Demuxthread::video_stream_time_base() const
+{
+  if (m_video_stream_idx)
+  {
+    return m_format_ctx->streams[*m_video_stream_idx]->time_base;
+  }
+  return av_make_q(0, 0);
+}
+
 void Demuxthread::run(std::stop_token token)
 {
   while (!token.stop_requested())

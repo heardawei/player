@@ -9,8 +9,9 @@ void fill_audio_pcm(void* userdata, uint8_t* stream, int len)
   // 从frame queue读取解码后的PCM的数据，填充到stream，最大填充len长度到stream。
   // 假设len:4000B, 一个frame有6000B, 一次读取了4000B, 这个frame胜了2000B
   AudioOutput* is = reinterpret_cast<AudioOutput*>(userdata);
-  int len1 = 0;
-  int audio_size = 0;
+  int len1{};
+  int audio_size{};
+
   while (len > 0)
   {
     SPDLOG_INFO("while len: {} > 0", len);
@@ -27,6 +28,8 @@ void fill_audio_pcm(void* userdata, uint8_t* stream, int len)
         SPDLOG_INFO("   - sample_rate({}) ", frame->sample_rate);
         SPDLOG_INFO("   - channels({}) ", frame->channels);
         SPDLOG_INFO("   - channel_layout({})", frame->channel_layout);
+
+        is->m_pts = frame->pts;
 
         // 怎么判断是否重采样
         // 1. PCM数据格式和输出格式不一样
@@ -95,7 +98,7 @@ void fill_audio_pcm(void* userdata, uint8_t* stream, int len)
           }
           is->m_audio_buf = is->m_audio_buf1;
           is->m_audio_buf_size = av_samples_get_buffer_size(
-              nullptr, is->m_params.channels, len2, is->m_params.format, 0);
+              nullptr, is->m_params.channels, len2, is->m_params.format, 1);
           SPDLOG_INFO("      get sample buffer: {}", is->m_audio_buf_size);
         }
         else
@@ -144,17 +147,32 @@ void fill_audio_pcm(void* userdata, uint8_t* stream, int len)
     stream += len1;
     is->m_audio_buf_index += len1;
   }
+
+  if (is->m_pts != AV_NOPTS_VALUE)
+  {
+    auto pts = is->m_pts * av_q2d(is->m_time_base);
+    is->m_avsync->set_clock(pts);
+    SPDLOG_INFO("audio pts: {} * ({} / {}) = {}",
+                is->m_pts,
+                is->m_time_base.num,
+                is->m_time_base.den,
+                pts);
+  }
 }
 
-AudioOutput::AudioOutput(std::shared_ptr<AVFrameQueue> queue)
+AudioOutput::AudioOutput(std::shared_ptr<AVFrameQueue> queue,
+                         std::shared_ptr<AVSync> avsync)
     : m_queue(queue)
+    , m_avsync(avsync)
 {
 }
 
 AudioOutput::~AudioOutput() {}
 
-int AudioOutput::init(const AudioParams& params)
+int AudioOutput::init(const AudioParams& params, AVRational time_base)
 {
+  m_time_base = time_base;
+
   if (const auto ret = SDL_Init(SDL_INIT_AUDIO); ret < 0)
   {
     SPDLOG_ERROR("SDL_Init(SDL_INIT_AUDIO) error: {}", SDL_GetError());

@@ -4,23 +4,26 @@
 
 #include "ffmpeg_utils.h"
 
-VideoOutput::VideoOutput(std::shared_ptr<AVFrameQueue> queue)
+VideoOutput::VideoOutput(std::shared_ptr<AVFrameQueue> queue,
+                         std::shared_ptr<AVSync> avsync)
     : m_queue(queue)
+    , m_avsync(avsync)
 {
 }
 
-int VideoOutput::init(int width, int height)
+int VideoOutput::init(int width, int height, AVRational time_base)
 {
+  m_width = width;
+  m_height = height;
+  m_time_base = time_base;
+
+  SPDLOG_INFO("wh: {} x {}", width, height);
+
   if (const auto ret = SDL_Init(SDL_INIT_VIDEO); ret < 0)
   {
     SPDLOG_ERROR("SDL_Init(SDL_INIT_VIDEO) error: {}", SDL_GetError());
     return ret;
   }
-
-  m_width = width;
-  m_height = height;
-
-  SPDLOG_INFO("wh: {} x {}", width, height);
 
   m_window = SDL_CreateWindow("player",
                               SDL_WINDOWPOS_UNDEFINED,
@@ -88,7 +91,7 @@ int VideoOutput::main_loop()
   }
 }
 
-#define REFRESH_RATE 10
+#define REFRESH_DELAY 10
 void VideoOutput::refresh_loop_wait_event(SDL_Event &event)
 {
   int remaining_time_ms = 0;
@@ -113,7 +116,7 @@ void VideoOutput::refresh_loop_wait_event(SDL_Event &event)
     {
       std::this_thread::sleep_for(std::chrono::milliseconds(remaining_time_ms));
     }
-    remaining_time_ms = REFRESH_RATE;
+    remaining_time_ms = REFRESH_DELAY;
 
     // 尝试刷新画面
     refresh_video(remaining_time_ms);
@@ -131,6 +134,21 @@ void VideoOutput::refresh_video(int &remaining_time_ms)
   auto &frame = m_queue->front();
   if (frame)
   {
+    double pts = frame->pts * av_q2d(m_time_base);
+    SPDLOG_INFO("video pts: {} * ({} / {}) = {}",
+                frame->pts,
+                m_time_base.num,
+                m_time_base.den,
+                pts);
+
+    auto diff = pts - m_avsync->get_clock();
+    if (diff > 0)
+    {
+      remaining_time_ms =
+          std::min(remaining_time_ms, static_cast<int>(diff * 1000));
+      return;
+    }
+
     m_rect.x = 0;
     m_rect.y = 0;
     m_rect.w = m_width;

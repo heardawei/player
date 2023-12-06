@@ -7,6 +7,7 @@
 
 #include <ffmpeg/avcodec>
 #include <ffmpeg/avformat>
+#include <ffmpeg/avutil>
 
 #include "avpacketqueue.h"
 
@@ -28,6 +29,9 @@ class Demuxthread
 
   const AVCodecParameters *audio_codec_params() const;
   const AVCodecParameters *video_codec_params() const;
+
+  AVRational audio_stream_time_base() const;
+  AVRational video_stream_time_base() const;
 
  private:
   void run(std::stop_token token);
