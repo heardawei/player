@@ -135,7 +135,7 @@ int main(int ac, char** av)
 
   if (const auto ret = audio_output->init(
           AudioParams::from(*demux_thread->audio_codec_params()),
-          demux_thread->video_stream_time_base());
+          demux_thread->audio_stream_time_base());
       ret < 0)
   {
     SPDLOG_ERROR("audio_output init error");
