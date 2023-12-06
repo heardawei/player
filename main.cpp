@@ -102,13 +102,13 @@ int main(int ac, char** av)
     return ret;
   }
 
-  if (const auto ret = audio_output->init(
-          AudioParams::from(*demux_thread->audio_codec_params()));
-      ret < 0)
-  {
-    SPDLOG_ERROR("audio_output init error: {}", Utils::error_stringify(ret));
-    return ret;
-  }
+  // if (const auto ret = audio_output->init(
+  //         AudioParams::from(*demux_thread->audio_codec_params()));
+  //     ret < 0)
+  // {
+  //   SPDLOG_ERROR("audio_output init error: {}", Utils::error_stringify(ret));
+  //   return ret;
+  // }
 
   demux_thread->start();
   audio_decode_thread->start();
