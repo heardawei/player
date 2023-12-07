@@ -40,26 +40,22 @@
 class AVSync
 {
  public:
-  double get_clock() const { return to_double(get_clock_impl()); }
-  void set_clock(double s) { return set_clock_impl(to_duration(s)); }
-
- private:
   using clock = std::chrono::steady_clock;
   using duration = clock::duration;
   using time_point = clock::time_point;
   using period = duration::period;
 
-  duration get_clock_impl() const { return clock::now() - m_base_time; }
+  duration get_clock() const { return clock::now() - m_base_time; }
 
-  void set_clock_impl(duration d)
+  void set_clock(duration d)
   {
     m_base_time = clock::now() - d;
     m_duration = d;
   }
 
-  static duration to_duration(double ms)
+  static duration to_duration(double s)
   {
-    return duration(static_cast<long long>(ms * (period::den / period::num)));
+    return duration(static_cast<long long>(s * (period::den / period::num)));
   }
 
   static double to_double(duration d)

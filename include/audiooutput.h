@@ -15,24 +15,13 @@ struct AudioParams
   AVSampleFormat format{AV_SAMPLE_FMT_NONE};
   int frame_size{};
 
-  static AudioParams from(const SDL_AudioSpec& spec)
+  AudioParams& operator=(const SDL_AudioSpec& spec)
   {
-    AudioParams params;
-    av_channel_layout_default(&params.channel_layout, spec.channels);
-    params.format = AV_SAMPLE_FMT_S16;
-    params.freq = spec.freq;
-    params.frame_size = spec.samples;
-    return params;
-  }
-
-  static AudioParams from(const AVCodecParameters& codec_params)
-  {
-    AudioParams audio_params;
-    audio_params.channel_layout = codec_params.ch_layout;
-    audio_params.format = (enum AVSampleFormat)codec_params.format;
-    audio_params.freq = codec_params.sample_rate;
-    audio_params.frame_size = codec_params.frame_size;
-    return audio_params;
+    av_channel_layout_default(&channel_layout, spec.channels);
+    format = AV_SAMPLE_FMT_S16;
+    freq = spec.freq;
+    frame_size = spec.samples;
+    return *this;
   }
 };
 
@@ -45,7 +34,7 @@ class AudioOutput
               std::shared_ptr<AVSync> avsync);
   ~AudioOutput();
 
-  int init(const AudioParams& params, AVRational time_base);
+  int init(const AVCodecParameters& params, AVRational time_base);
   void deinit();
 
  public:

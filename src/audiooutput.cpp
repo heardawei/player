@@ -1,8 +1,15 @@
 #include "audiooutput.h"
 
+#include <spdlog/fmt/std.h>
 #include <spdlog/spdlog.h>
 
 #include "ffmpeg_utils.h"
+
+namespace
+{
+constexpr auto MS_PER_S = std::chrono::milliseconds::period::den /
+                          std::chrono::milliseconds::period::num;
+}  // namespace
 
 void fill_audio_pcm(void* userdata, uint8_t* stream, int len)
 {
@@ -159,13 +166,10 @@ void fill_audio_pcm(void* userdata, uint8_t* stream, int len)
 
   if (opt_pts)
   {
-    auto pts = *opt_pts * av_q2d(is->m_time_base);
+    auto pts = std::chrono::milliseconds(
+        MS_PER_S * opt_pts.value() * is->m_time_base.num / is->m_time_base.den);
     is->m_avsync->set_clock(pts);
-    SPDLOG_DEBUG("audio pts: {} * ({} / {}) = {}",
-                 *opt_pts,
-                 is->m_time_base.num,
-                 is->m_time_base.den,
-                 pts);
+    SPDLOG_DEBUG("audio pts: {}", pts);
   }
 }
 
@@ -178,7 +182,7 @@ AudioOutput::AudioOutput(std::shared_ptr<AVFrameQueue> queue,
 
 AudioOutput::~AudioOutput() {}
 
-int AudioOutput::init(const AudioParams& params, AVRational time_base)
+int AudioOutput::init(const AVCodecParameters& params, AVRational time_base)
 {
   m_time_base = time_base;
 
@@ -189,11 +193,11 @@ int AudioOutput::init(const AudioParams& params, AVRational time_base)
   }
 
   SDL_AudioSpec spec;
-  spec.channels = 2;  // 只支持2 channel的输出
-  spec.freq = params.freq;
+  spec.channels = params.ch_layout.nb_channels;
+  spec.freq = params.sample_rate;
   spec.format = AUDIO_S16SYS;
   spec.silence = 0;
-  spec.samples = 1024;  // 采样数量
+  spec.samples = params.frame_size;  // 采样数量
   spec.callback = fill_audio_pcm;
   spec.userdata = this;
 
@@ -210,14 +214,14 @@ int AudioOutput::init(const AudioParams& params, AVRational time_base)
     return -1;
   }
 
-  m_params = AudioParams::from(spec);
+  m_params = spec;
 
   SDL_PauseAudio(0);
 
-  SPDLOG_INFO("spec: ");
-  SPDLOG_INFO(" - format({}) ", static_cast<int>(m_params.format));
-  SPDLOG_INFO(" - sample_rate({}) ", m_params.freq);
-  SPDLOG_INFO(" - channels({}) ", m_params.channel_layout.nb_channels);
+  SPDLOG_TRACE("spec: ");
+  SPDLOG_TRACE(" - format({}) ", static_cast<int>(m_params.format));
+  SPDLOG_TRACE(" - sample_rate({}) ", m_params.freq);
+  SPDLOG_TRACE(" - channels({}) ", m_params.channel_layout.nb_channels);
 
   return 0;
 }
