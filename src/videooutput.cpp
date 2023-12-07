@@ -83,6 +83,7 @@ void VideoOutput::deinit()
 
 void VideoOutput::main_loop()
 {
+  int frames = 0;
   while (true)
   {
     if (const auto &event_opt = pop_user_event();
@@ -114,7 +115,9 @@ void VideoOutput::main_loop()
     // 刷新画面
     SPDLOG_DEBUG("get_next_refresh_duration: {}, refreshing", duration_opt);
     refresh_video();
+    frames++;
   }
+  SPDLOG_INFO("played {} frames", frames);
 }
 
 std::optional<SDL_Event> VideoOutput::pop_user_event()

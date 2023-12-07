@@ -50,6 +50,8 @@ void CodecThread::deinit() { avcodec_close(m_codec_ctx); }
 
 void CodecThread::run(std::stop_token token)
 {
+  int packets = 0;
+  int frames = 0;
   while (!token.stop_requested())
   {
     auto opt = m_packet_queue->pop(std::chrono::milliseconds(10));
@@ -57,12 +59,15 @@ void CodecThread::run(std::stop_token token)
     {
       continue;
     }
+
     auto pkt = *opt;
     if (const auto ret = avcodec_send_packet(m_codec_ctx, pkt.get()); ret < 0)
     {
       SPDLOG_ERROR("avcodec_send_packet error: {}", Utils::error_stringify(ret));
       return;
     }
+
+    packets++;
 
     while (!token.stop_requested())
     {
@@ -72,6 +77,7 @@ void CodecThread::run(std::stop_token token)
           ret == 0)
       {
         m_frame_queue->push(frame);
+        frames++;
         continue;
       }
       else if (ret == AVERROR(EAGAIN))
@@ -85,4 +91,5 @@ void CodecThread::run(std::stop_token token)
       }
     }
   }
+  SPDLOG_INFO("decode {} packets -> {} frames", packets, frames);
 }

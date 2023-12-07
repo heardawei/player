@@ -168,9 +168,5 @@ int main(int ac, char** av)
   audio_decode_thread->deinit();
   demux_thread->deinit();
 
-  SPDLOG_INFO("audio frames: {}, video frames: {}",
-              audio_frame_queue->size(),
-              video_frame_queue->size());
-
   return 0;
 }

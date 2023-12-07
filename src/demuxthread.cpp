@@ -112,6 +112,8 @@ AVRational Demuxthread::video_stream_time_base() const
 
 void Demuxthread::run(std::stop_token token)
 {
+  int audio_packets = 0;
+  int video_packets = 0;
   while (!token.stop_requested())
   {
     if (m_audio_packet_queue->size() > 200 ||
@@ -140,14 +142,18 @@ void Demuxthread::run(std::stop_token token)
     if (m_audio_stream_idx && pkt->stream_index == *m_audio_stream_idx)
     {
       m_audio_packet_queue->push(pkt);
+      audio_packets++;
     }
     else if (m_video_stream_idx && pkt->stream_index == *m_video_stream_idx)
     {
       m_video_packet_queue->push(pkt);
+      video_packets++;
     }
     else
     {
       av_packet_unref(pkt.get());
     }
   }
+  SPDLOG_INFO("demuxed {} audio packets", audio_packets);
+  SPDLOG_INFO("demuxed {} video packets", video_packets);
 }

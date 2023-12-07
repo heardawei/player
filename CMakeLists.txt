@@ -36,7 +36,7 @@ target_link_libraries(player PRIVATE
 target_link_directories(player PRIVATE 
     "D:/code/3rd-party/ffmpeg-6.1-full_build-shared/lib")
 target_compile_features(player PRIVATE cxx_std_23)
-target_compile_definitions(player PRIVATE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE)
+target_compile_definitions(player PRIVATE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG)
 if(CMAKE_HOST_WIN32)
     add_custom_command(TARGET player POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy -t $<TARGET_FILE_DIR:player> $<TARGET_RUNTIME_DLLS:player>
